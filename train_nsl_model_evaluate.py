@@ -27,6 +27,12 @@ try:
     print(f"Validation Loss: {val_loss}")
     print(f"Validation Accuracy: {val_accuracy}")
     
+    # Ensure validation accuracy is above 90%
+    if val_accuracy >= 0.90:
+        print("Validation accuracy is above 90%")
+    else:
+        print("Validation accuracy is below 90%")
+    
 except Exception as e:
     print(f"An error occurred: {e}")
     print("\nTroubleshooting tips:")
