@@ -1,0 +1,45 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>NSL Translation</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            text-align: center;
+            background-color: #f0f0f0;
+        }
+        h1 {
+            color: #333;
+        }
+        img {
+            border: 2px solid #333;
+        }
+        #prediction {
+            font-size: 24px;
+            margin-top: 20px;
+            color: #333;
+        }
+    </style>
+</head>
+<body>
+    <h1>Nepali Sign Language Translation</h1>
+    <img src="{{ url_for('video_feed') }}" width="640" height="480">
+    <div id="prediction">Predicted Character: ...</div>
+
+    <script>
+        function updatePrediction() {
+            fetch('/predict')
+                .then(response => response.json())
+                .then(data => {
+                    if (data.character) {
+                        document.getElementById('prediction').innerText = `Predicted Character: ${data.character} (Label: ${data.label})`;
+                    }
+                })
+                .catch(error => console.error('Error:', error));
+        }
+
+        // Update prediction every second
+        setInterval(updatePrediction, 1000);
+    </script>
+</body>
+</html>

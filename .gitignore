@@ -1,0 +1,8 @@
+nsl_images.npy
+nsl_labels.npy
+
+.DS_Store
+*.pyc
+__pycache__/
+
+NSL/
