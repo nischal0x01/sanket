@@ -3,15 +3,16 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>NSL Recognition</title>
+    <title>Nepali Sign Language Recognition</title>
     <style>
         body {
-            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            font-family: 'Arial', sans-serif;
             margin: 0;
             padding: 20px;
             background-color: #f5f5f5;
             color: #333;
         }
+        
         .container {
             max-width: 1200px;
             margin: 0 auto;
@@ -19,145 +20,155 @@
             flex-direction: column;
             align-items: center;
         }
+        
         h1 {
             color: #2c3e50;
             text-align: center;
             margin-bottom: 20px;
         }
-        .content {
+        
+        .main-content {
             display: flex;
             flex-wrap: wrap;
             justify-content: center;
             gap: 20px;
             width: 100%;
         }
+        
         .video-container {
-            flex: 1;
-            min-width: 300px;
-            max-width: 640px;
-            background-color: #fff;
+            background: #fff;
             border-radius: 8px;
             box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
-            padding: 15px;
-            margin-bottom: 20px;
+            padding: 20px;
+            width: 640px;
+            max-width: 100%;
         }
-        .video-stream {
+        
+        .prediction-container {
+            background: #fff;
+            border-radius: 8px;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+            padding: 20px;
+            width: 300px;
+            max-width: 100%;
+        }
+        
+        .video-feed {
             width: 100%;
+            height: auto;
             border-radius: 4px;
         }
-        .prediction-container {
-            flex: 1;
-            min-width: 300px;
-            max-width: 500px;
-            background-color: #fff;
+        
+        .char-display {
+            font-size: 72px;
+            text-align: center;
+            margin: 20px 0;
+            height: 100px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        
+        .prediction-info {
+            font-size: 18px;
+            margin-top: 10px;
+        }
+        
+        .confidence-bar {
+            width: 100%;
+            height: 20px;
+            background-color: #eee;
+            border-radius: 10px;
+            margin: 15px 0;
+            overflow: hidden;
+        }
+        
+        .confidence-level {
+            height: 100%;
+            background-color: green;
+            width: 0%;
+            transition: width 0.3s ease;
+            border-radius: 10px;
+        }
+        
+        .instructions {
+            background: #fff;
             border-radius: 8px;
             box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
-            padding: 15px;
+            padding: 20px;
+            margin-top: 20px;
+            width: 100%;
+            max-width: 980px;
         }
-        .prediction-box {
+        
+        .char-table {
+            display: grid;
+            grid-template-columns: repeat(6, 1fr);
+            gap: 10px;
+            margin-top: 20px;
+        }
+        
+        .char-item {
+            text-align: center;
+            padding: 10px;
+            background-color: #f0f0f0;
+            border-radius: 4px;
             display: flex;
             flex-direction: column;
             align-items: center;
-            justify-content: center;
-            margin-top: 20px;
         }
-        .character {
-            font-size: 120px;
-            font-weight: bold;
-            margin-bottom: 10px;
-            height: 150px;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-        }
-        .label {
-            font-size: 24px;
-            color: #7f8c8d;
-            margin-bottom: 5px;
-        }
-        .confidence {
-            font-size: 18px;
-            color: #2980b9;
-        }
-        .controls {
-            margin-top: 20px;
-            display: flex;
-            gap: 10px;
-            flex-wrap: wrap;
-            justify-content: center;
-        }
-        button {
-            background-color: #3498db;
-            color: white;
-            border: none;
-            padding: 10px 15px;
-            border-radius: 4px;
-            cursor: pointer;
-            font-size: 16px;
-            transition: background-color 0.3s;
-        }
-        button:hover {
-            background-color: #2980b9;
-        }
-        .debug-button {
-            background-color: #e74c3c;
-        }
-        .debug-button:hover {
-            background-color: #c0392b;
-        }
-        .debug-on {
-            background-color: #2ecc71;
-        }
-        .debug-on:hover {
-            background-color: #27ae60;
-        }
-        .alternatives {
-            margin-top: 20px;
-            width: 100%;
-        }
-        .alt-prediction {
-            display: flex;
-            align-items: center;
-            margin-bottom: 5px;
-            padding: 8px;
-            background-color: #f9f9f9;
-            border-radius: 4px;
-        }
-        .alt-char {
+        
+        .char-nepali {
             font-size: 24px;
             font-weight: bold;
-            margin-right: 10px;
-            width: 40px;
+        }
+        
+        .char-index {
+            font-size: 12px;
+            color: #666;
+        }
+        
+        .status-message {
+            margin-top: 10px;
+            padding: 10px;
+            border-radius: 4px;
+            background-color: #f8f9fa;
             text-align: center;
         }
-        .confidence-bar {
-            flex: 1;
-            height: 20px;
-            background-color: #ecf0f1;
-            border-radius: 10px;
-            overflow: hidden;
-            margin-right: 10px;
-        }
-        .confidence-level {
-            height: 100%;
-            background-color: #3498db;
-            border-radius: 10px;
-        }
-        .confidence-text {
-            width: 60px;
-            text-align: right;
-        }
-        .instructions {
-            background-color: #fff;
-            border-radius: 8px;
-            padding: 15px;
+        
+        .history-container {
             margin-top: 20px;
-            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
             width: 100%;
-            max-width: 1000px;
         }
-        .troubleshooting {
-            margin-top: 20px;
+        
+        .history-list {
+            list-style-type: none;
+            padding: 0;
+            display: flex;
+            flex-wrap: wrap;
+            gap: 10px;
+        }
+        
+        .history-item {
+            font-size: 24px;
+            background-color: #e9ecef;
+            padding: 5px 10px;
+            border-radius: 4px;
+        }
+        
+        @media (max-width: 768px) {
+            .main-content {
+                flex-direction: column;
+                align-items: center;
+            }
+            
+            .video-container, .prediction-container {
+                width: 100%;
+            }
+            
+            .char-table {
+                grid-template-columns: repeat(3, 1fr);
+            }
         }
     </style>
 </head>
@@ -165,144 +176,282 @@
     <div class="container">
         <h1>Nepali Sign Language Recognition</h1>
         
-        <div class="content">
+        <div class="main-content">
             <div class="video-container">
-                <h2>Camera Feed</h2>
-                <img src="{{ url_for('video_feed') }}" class="video-stream">
-                
-                <div class="controls">
-                    <button id="resetModelBtn">Reset Model</button>
-                    <button id="toggleDebugBtn" class="debug-button">Enable Debug</button>
-                </div>
+                <img src="{{ url_for('video_feed') }}" class="video-feed" alt="Video Feed">
+                <div class="status-message" id="status-message">Waiting for hand detection...</div>
             </div>
             
             <div class="prediction-container">
-                <h2>Current Prediction</h2>
-                
-                <div class="prediction-box">
-                    <div class="character" id="character">-</div>
-                    <div class="label" id="label">Waiting for prediction...</div>
-                    <div class="confidence" id="confidence"></div>
+                <h2>Recognition Result</h2>
+                <div class="char-display" id="character-display">-</div>
+                <div class="prediction-info">
+                    <p>Confidence:</p>
+                    <div class="confidence-bar">
+                        <div class="confidence-level" id="confidence-level"></div>
+                    </div>
+                    <p id="confidence-value">0%</p>
+                </div>
+                <div class="prediction-info">
+                    <p>Stability:</p>
+                    <div class="confidence-bar">
+                        <div class="confidence-level" id="stability-level" style="background-color: #3498db;"></div>
+                    </div>
+                    <p id="stability-value">0%</p>
                 </div>
                 
-                <div class="alternatives">
-                    <h3>Alternative Predictions</h3>
-                    <div id="alternatives-container"></div>
+                <h3>Recent Characters</h3>
+                <div class="history-container">
+                    <ul class="history-list" id="history-list">
+                        <!-- History items will be added here -->
+                    </ul>
                 </div>
             </div>
         </div>
         
         <div class="instructions">
             <h2>Instructions</h2>
-            <p>Show a Nepali Sign Language hand sign to the camera. Position your hand clearly within the green box.</p>
-            <p>Keep your hand steady for accurate recognition.</p>
+            <p>1. Position your hand clearly in front of the camera.</p>
+            <p>2. Form the hand gesture for the Nepali character you want to sign.</p>
+            <p>3. Hold the gesture steady for a moment to get an accurate prediction.</p>
+            <p>4. The system will display the recognized character and confidence level.</p>
             
-            <div class="troubleshooting">
-                <h3>Troubleshooting</h3>
-                <ul>
-                    <li>If the application consistently predicts the same character, try clicking "Reset Model".</li>
-                    <li>Ensure good lighting conditions for better recognition.</li>
-                    <li>Position your hand within frame and avoid quick movements.</li>
-                    <li>Enable debug mode to save problem frames for analysis.</li>
-                </ul>
+            <h3>Available Characters</h3>
+            <div class="char-table">
+                <!-- Generate table for all 36 characters -->
+                <div class="char-item">
+                    <div class="char-nepali">क</div>
+                    <div class="char-index">0</div>
+                </div>
+                <div class="char-item">
+                    <div class="char-nepali">ख</div>
+                    <div class="char-index">1</div>
+                </div>
+                <div class="char-item">
+                    <div class="char-nepali">ग</div>
+                    <div class="char-index">2</div>
+                </div>
+                <div class="char-item">
+                    <div class="char-nepali">घ</div>
+                    <div class="char-index">3</div>
+                </div>
+                <div class="char-item">
+                    <div class="char-nepali">ङ</div>
+                    <div class="char-index">4</div>
+                </div>
+                <div class="char-item">
+                    <div class="char-nepali">च</div>
+                    <div class="char-index">5</div>
+                </div>
+                <div class="char-item">
+                    <div class="char-nepali">छ</div>
+                    <div class="char-index">6</div>
+                </div>
+                <div class="char-item">
+                    <div class="char-nepali">ज</div>
+                    <div class="char-index">7</div>
+                </div>
+                <div class="char-item">
+                    <div class="char-nepali">झ</div>
+                    <div class="char-index">8</div>
+                </div>
+                <div class="char-item">
+                    <div class="char-nepali">ञ</div>
+                    <div class="char-index">9</div>
+                </div>
+                <div class="char-item">
+                    <div class="char-nepali">ट</div>
+                    <div class="char-index">10</div>
+                </div>
+                <div class="char-item">
+                    <div class="char-nepali">ठ</div>
+                    <div class="char-index">11</div>
+                </div>
+                <div class="char-item">
+                    <div class="char-nepali">ड</div>
+                    <div class="char-index">12</div>
+                </div>
+                <div class="char-item">
+                    <div class="char-nepali">ढ</div>
+                    <div class="char-index">13</div>
+                </div>
+                <div class="char-item">
+                    <div class="char-nepali">ण</div>
+                    <div class="char-index">14</div>
+                </div>
+                <div class="char-item">
+                    <div class="char-nepali">त</div>
+                    <div class="char-index">15</div>
+                </div>
+                <div class="char-item">
+                    <div class="char-nepali">थ</div>
+                    <div class="char-index">16</div>
+                </div>
+                <div class="char-item">
+                    <div class="char-nepali">द</div>
+                    <div class="char-index">17</div>
+                </div>
+                <div class="char-item">
+                    <div class="char-nepali">ध</div>
+                    <div class="char-index">18</div>
+                </div>
+                <div class="char-item">
+                    <div class="char-nepali">न</div>
+                    <div class="char-index">19</div>
+                </div>
+                <div class="char-item">
+                    <div class="char-nepali">प</div>
+                    <div class="char-index">20</div>
+                </div>
+                <div class="char-item">
+                    <div class="char-nepali">फ</div>
+                    <div class="char-index">21</div>
+                </div>
+                <div class="char-item">
+                    <div class="char-nepali">ब</div>
+                    <div class="char-index">22</div>
+                </div>
+                <div class="char-item">
+                    <div class="char-nepali">भ</div>
+                    <div class="char-index">23</div>
+                </div>
+                <div class="char-item">
+                    <div class="char-nepali">म</div>
+                    <div class="char-index">24</div>
+                </div>
+                <div class="char-item">
+                    <div class="char-nepali">य</div>
+                    <div class="char-index">25</div>
+                </div>
+                <div class="char-item">
+                    <div class="char-nepali">र</div>
+                    <div class="char-index">26</div>
+                </div>
+                <div class="char-item">
+                    <div class="char-nepali">ल</div>
+                    <div class="char-index">27</div>
+                </div>
+                <div class="char-item">
+                    <div class="char-nepali">व</div>
+                    <div class="char-index">28</div>
+                </div>
+                <div class="char-item">
+                    <div class="char-nepali">श</div>
+                    <div class="char-index">29</div>
+                </div>
+                <div class="char-item">
+                    <div class="char-nepali">ष</div>
+                    <div class="char-index">30</div>
+                </div>
+                <div class="char-item">
+                    <div class="char-nepali">स</div>
+                    <div class="char-index">31</div>
+                </div>
+                <div class="char-item">
+                    <div class="char-nepali">ह</div>
+                    <div class="char-index">32</div>
+                </div>
+                <div class="char-item">
+                    <div class="char-nepali">क्ष</div>
+                    <div class="char-index">33</div>
+                </div>
+                <div class="char-item">
+                    <div class="char-nepali">त्र</div>
+                    <div class="char-index">34</div>
+                </div>
+                <div class="char-item">
+                    <div class="char-nepali">ज्ञ</div>
+                    <div class="char-index">35</div>
+                </div>
             </div>
         </div>
     </div>
-
+    
     <script>
-        // Elements
-        const characterElem = document.getElementById('character');
-        const labelElem = document.getElementById('label');
-        const confidenceElem = document.getElementById('confidence');
-        const alternativesContainer = document.getElementById('alternatives-container');
-        const resetModelBtn = document.getElementById('resetModelBtn');
-        const toggleDebugBtn = document.getElementById('toggleDebugBtn');
+        // History of recognized characters
+        const characterHistory = [];
+        const maxHistoryLength = 10;
         
-        // Debug state
-        let debugEnabled = false;
-        
-        // Fetch prediction from server
-        function fetchPrediction() {
+        // Update prediction information
+        function updatePrediction() {
             fetch('/predict')
                 .then(response => response.json())
                 .then(data => {
                     if (data.error) {
-                        // No prediction available yet
+                        document.getElementById('status-message').textContent = "No prediction available";
                         return;
                     }
                     
-                    // Update main prediction
-                    characterElem.textContent = data.character;
-                    labelElem.textContent = `Label: ${data.label}`;
-                    confidenceElem.textContent = `Confidence: ${(data.confidence * 100).toFixed(1)}%`;
+                    // Display the character
+                    const charDisplay = document.getElementById('character-display');
+                    const statusMessage = document.getElementById('status-message');
                     
-                    // Update alternative predictions
-                    updateAlternatives(data.top_predictions);
-                })
-                .catch(err => console.error('Error fetching prediction:', err));
-        }
-        
-        // Update alternative predictions
-        function updateAlternatives(alternatives) {
-            alternativesContainer.innerHTML = '';
-            
-            alternatives.forEach(alt => {
-                const altElem = document.createElement('div');
-                altElem.className = 'alt-prediction';
-                
-                const charElem = document.createElement('div');
-                charElem.className = 'alt-char';
-                charElem.textContent = alt.character;
-                
-                const barContainer = document.createElement('div');
-                barContainer.className = 'confidence-bar';
-                
-                const barLevel = document.createElement('div');
-                barLevel.className = 'confidence-level';
-                barLevel.style.width = `${alt.confidence * 100}%`;
-                
-                const confText = document.createElement('div');
-                confText.className = 'confidence-text';
-                confText.textContent = `${(alt.confidence * 100).toFixed(1)}%`;
-                
-                barContainer.appendChild(barLevel);
-                
-                altElem.appendChild(charElem);
-                altElem.appendChild(barContainer);
-                altElem.appendChild(confText);
-                
-                alternativesContainer.appendChild(altElem);
-            });
-        }
-        
-        // Reset model weights
-        resetModelBtn.addEventListener('click', function() {
-            fetch('/reset_model')
-                .then(response => response.json())
-                .then(data => {
-                    if (data.error) {
-                        alert('Error: ' + data.error);
-                    } else {
-                        alert('Model reset successfully');
+                    if (data.character === "No hand detected") {
+                        charDisplay.textContent = "-";
+                        statusMessage.textContent = "No hand detected. Please show your hand to the camera.";
+                        statusMessage.style.backgroundColor = "#ffcccc";
+                    } else if (data.character === "Waiting for clear gesture...") {
+                        charDisplay.textContent = "-";
+                        statusMessage.textContent = "Waiting for a clear gesture...";
+                        statusMessage.style.backgroundColor = "#ffffcc";
+                    } else if (data.label !== undefined) {
+                        charDisplay.textContent = data.character;
+                        statusMessage.textContent = "Character recognized!";
+                        statusMessage.style.backgroundColor = "#ccffcc";
+                        
+                        // Add to history if it's a new character
+                        if (characterHistory.length === 0 || 
+                            characterHistory[characterHistory.length - 1] !== data.character) {
+                            characterHistory.push(data.character);
+                            if (characterHistory.length > maxHistoryLength) {
+                                characterHistory.shift();
+                            }
+                            updateHistory();
+                        }
+                    }
+                    
+                    // Update confidence display
+                    if (data.confidence !== undefined) {
+                        const confidencePercent = Math.round(data.confidence * 100);
+                        document.getElementById('confidence-value').textContent = confidencePercent + "%";
+                        document.getElementById('confidence-level').style.width = confidencePercent + "%";
+                        
+                        // Change color based on confidence
+                        let color = "red";
+                        if (confidencePercent > 80) color = "green";
+                        else if (confidencePercent > 60) color = "#5cb85c";  // Lighter green
+                        else if (confidencePercent > 40) color = "orange";
+                        document.getElementById('confidence-level').style.backgroundColor = color;
+                    }
+                    
+                    // Update stability display
+                    if (data.stability !== undefined) {
+                        const stabilityPercent = Math.round(data.stability * 100);
+                        document.getElementById('stability-value').textContent = stabilityPercent + "%";
+                        document.getElementById('stability-level').style.width = stabilityPercent + "%";
                     }
                 })
-                .catch(err => console.error('Error resetting model:', err));
-        });
+                .catch(error => {
+                    console.error('Error fetching prediction:', error);
+                });
+        }
         
-        // Toggle debug mode
-        toggleDebugBtn.addEventListener('click', function() {
-            fetch('/toggle_debug')
-                .then(response => response.json())
-                .then(data => {
-                    debugEnabled = data.debug_enabled;
-                    toggleDebugBtn.textContent = debugEnabled ? 'Disable Debug' : 'Enable Debug';
-                    toggleDebugBtn.classList.toggle('debug-on', debugEnabled);
-                })
-                .catch(err => console.error('Error toggling debug mode:', err));
-        });
+        // Update history display
+        function updateHistory() {
+            const historyList = document.getElementById('history-list');
+            historyList.innerHTML = '';
+            
+            // Add items in reverse order (newest first)
+            for (let i = characterHistory.length - 1; i >= 0; i--) {
+                const li = document.createElement('li');
+                li.className = 'history-item';
+                li.textContent = characterHistory[i];
+                historyList.appendChild(li);
+            }
+        }
         
-        // Poll for predictions
-        setInterval(fetchPrediction, 500);
+        // Update prediction periodically
+        setInterval(updatePrediction, 500);
     </script>
 </body>
 </html>

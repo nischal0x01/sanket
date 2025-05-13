@@ -2,233 +2,254 @@ import cv2
 import tensorflow as tf
 import numpy as np
 import mediapipe as mp
-from flask import Flask, render_template, Response, jsonify, request
-import os
+from flask import Flask, render_template, Response, jsonify
 import time
+import os
 
 app = Flask(__name__)
 
-# Load the trained model
-model_path = "nsl_model_fixed.h5"
-if not os.path.exists(model_path):
-    print(f"Error: Model file '{model_path}' not found!")
-    model = None
-else:
-    model = tf.keras.models.load_model(model_path)
-    
-    # Fix the model if needed by resetting the output layer
-    last_layer = model.layers[-1]
-    weights, biases = last_layer.get_weights()
-    if np.std(biases) > 0.05 or np.max(biases) > 0.1:
-        print("Detected possible bias in output layer. Applying fix...")
-        new_weights = np.random.normal(0, 0.01, size=weights.shape)
-        new_biases = np.zeros_like(biases)
-        last_layer.set_weights([new_weights, new_biases])
-        print("Model output layer reset to prevent class dominance")
+# Create debug directory
+debug_dir = "debug_frames"
+os.makedirs(debug_dir, exist_ok=True)
 
-# Nepali character mapping (ensure this matches your training labels)
-nepali_chars = ["क", "ख", "ग", "घ", "ङ", "च", "छ", "ज", "झ", "ञ", "ट", "ठ", "ड", "ढ", "ण", "त", "थ", "द", "ध", "न", "प", "फ", "ब", "भ", "म", "य", "र", "ल", "व", "श", "ष", "स", "ह", "क्ष", "त्र", "ज्ञ"]
+# Load the trained model
+model = tf.keras.models.load_model("nsl_model.h5")
+print(f"Model loaded successfully. Input shape: {model.input_shape}")
+
+# Nepali character mapping
+nepali_chars = ["क", "ख", "ग", "घ", "ङ", "च", "छ", "ज", "झ", "ञ", "ट", "ठ", "ड", "ढ", "ण", 
+                "त", "थ", "द", "ध", "न", "प", "फ", "ब", "भ", "म", "य", "र", "ल", "व", "श", 
+                "ष", "स", "ह", "क्ष", "त्र", "ज्ञ"]
 
 # Initialize MediaPipe Hands
 mp_hands = mp.solutions.hands
-hands = mp_hands.Hands(max_num_hands=1, min_detection_confidence=0.7)
+hands = mp_hands.Hands(max_num_hands=1, min_detection_confidence=0.7, min_tracking_confidence=0.7)
 mp_draw = mp.solutions.drawing_utils
 
 # Global variables
 latest_prediction = None
-prediction_history = []  # To track prediction stability
-last_prediction_time = 0
-prediction_cooldown = 0.5  # seconds between predictions to avoid flickering
+previous_predictions = []
+prediction_threshold = 3  # Reduced from 5 to 3 for faster response
+confidence_threshold = 0.5  # Reduced from 0.7 to see more predictions
 
-# Create directory for debug images if it doesn't exist
-debug_dir = "debug_frames"
-os.makedirs(debug_dir, exist_ok=True)
-debug_enabled = False
+# Frame counter for debugging
+frame_counter = 0
 
-def get_hand_roi(frame, hand_landmarks):
-    """Extract ROI around hand with proper padding and aspect ratio"""
-    h, w, _ = frame.shape
-    x_min, y_min = w, h
-    x_max, y_max = 0, 0
-    
-    # Get bounding box around hand landmarks
-    for lm in hand_landmarks.landmark:
-        x, y = int(lm.x * w), int(lm.y * h)
-        x_min = min(x_min, x)
-        y_min = min(y_min, y)
-        x_max = max(x_max, x)
-        y_max = max(y_max, y)
-    
-    # Calculate center and size
-    center_x = (x_min + x_max) // 2
-    center_y = (y_min + y_max) // 2
-    
-    # Get the larger dimension for a square crop
-    half_size = max(x_max - x_min, y_max - y_min) // 2
-    # Add padding (40% of hand size)
-    half_size = int(half_size * 1.4)
-    
-    # Calculate new bounding box
-    x_min = max(0, center_x - half_size)
-    y_min = max(0, center_y - half_size)
-    x_max = min(w, center_x + half_size)
-    y_max = min(h, center_y + half_size)
-    
-    # Extract and return the ROI
-    hand_roi = frame[y_min:y_max, x_min:x_max]
-    return hand_roi, (x_min, y_min, x_max, y_max)
+# Debug mode - save problematic frames
+debug_mode = True
+debug_frame_interval = 20  # Save every 20th frame for analysis
 
-def preprocess_hand_image(hand_img):
-    """Preprocess hand image for model prediction"""
-    if hand_img.size == 0:
-        return None
+def preprocess_image_for_prediction(image):
+    """
+    Preprocess image consistently with training data
+    """
+    # Resize to model's expected input size
+    resized = cv2.resize(image, (64, 64))  # Ensure this matches training resolution
     
-    # Convert to RGB if needed
-    if len(hand_img.shape) == 3 and hand_img.shape[2] == 3:
-        hand_img_rgb = cv2.cvtColor(hand_img, cv2.COLOR_BGR2RGB)
+    # Convert to RGB (if not already)
+    if len(image.shape) == 2 or image.shape[2] == 1:
+        rgb_image = cv2.cvtColor(resized, cv2.COLOR_GRAY2RGB)
     else:
-        return None
+        rgb_image = cv2.cvtColor(resized, cv2.COLOR_BGR2RGB)
     
-    # Resize to model input size
-    hand_img_resized = cv2.resize(hand_img_rgb, (64, 64))
+    # Normalize to [0,1] range - matching training preprocessing
+    normalized = rgb_image / 255.0  # Ensure this matches training normalization
     
-    # Normalize pixel values
-    hand_img_normalized = hand_img_resized / 255.0
-    
-    # Add batch dimension
-    hand_img_batch = np.expand_dims(hand_img_normalized, axis=0)
-    
-    return hand_img_batch
+    return normalized
 
-def get_stable_prediction(new_pred):
-    """Get stable prediction using history to avoid flickering"""
-    global prediction_history
+def save_debug_info(frame, processed_img, prediction, label, confidence, frame_num):
+    """
+    Save debug information to analyze prediction issues
+    """
+    if not debug_mode:
+        return
     
-    # Add new prediction to history
-    prediction_history.append(new_pred)
+    # Create a debug frame
+    debug_path = os.path.join(debug_dir, f"frame_{frame_num:04d}_pred_{nepali_chars[label]}_conf_{confidence:.2f}.jpg")
     
-    # Keep only last 5 predictions
-    if len(prediction_history) > 5:
-        prediction_history.pop(0)
+    # Save original frame
+    cv2.imwrite(debug_path, frame)
     
-    # Count occurrences of each class
-    counts = {}
-    for pred in prediction_history:
-        if pred in counts:
-            counts[pred] += 1
-        else:
-            counts[pred] = 1
+    # Save processed input to model
+    processed_debug = (processed_img[0] * 255).astype(np.uint8)  # Convert back to 0-255 range
+    processed_path = os.path.join(debug_dir, f"frame_{frame_num:04d}_processed.jpg")
+    cv2.imwrite(processed_path, cv2.cvtColor(processed_debug, cv2.COLOR_RGB2BGR))
     
-    # Find most common prediction
-    max_count = 0
-    stable_pred = new_pred
-    
-    for pred, count in counts.items():
-        if count > max_count:
-            max_count = count
-            stable_pred = pred
-    
-    return stable_pred
+    # Save prediction distribution
+    with open(os.path.join(debug_dir, f"frame_{frame_num:04d}_predictions.txt"), "w") as f:
+        f.write(f"Predicted Label: {nepali_chars[label]} (index {label})\n")
+        f.write(f"Confidence: {confidence:.4f}\n\n")
+        f.write("All Predictions:\n")
+        for i, prob in enumerate(prediction[0]):
+            f.write(f"{i}: {nepali_chars[i]} = {prob:.4f}\n")
 
 # Webcam feed generator
 def gen_frames():
-    global latest_prediction, last_prediction_time
+    global latest_prediction, previous_predictions, frame_counter
     cap = cv2.VideoCapture(0)
-    
     if not cap.isOpened():
         print("Error: Could not open webcam.")
         return
-
-    frame_count = 0
+    
+    # Set camera properties for better quality
+    cap.set(cv2.CAP_PROP_FRAME_WIDTH, 640)
+    cap.set(cv2.CAP_PROP_FRAME_HEIGHT, 480)
     
     while True:
         ret, frame = cap.read()
         if not ret:
             print("Error: Could not read frame.")
             break
-
-        frame_count += 1
+            
+        # Mirror frame for more intuitive interaction
+        frame = cv2.flip(frame, 1)
+        frame_counter += 1
+        
+        # Get frame dimensions
+        h, w, _ = frame.shape
+        
+        # Create a copy for display
+        display_frame = frame.copy()
         
         # Convert frame to RGB for MediaPipe
         frame_rgb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
         results = hands.process(frame_rgb)
-
-        current_time = time.time()
-        prediction_ready = current_time - last_prediction_time >= prediction_cooldown
         
-        # If hands are detected, process for prediction
+        # If hands are detected
         if results.multi_hand_landmarks:
             for hand_landmarks in results.multi_hand_landmarks:
                 # Draw landmarks
-                mp_draw.draw_landmarks(frame, hand_landmarks, mp_hands.HAND_CONNECTIONS)
+                mp_draw.draw_landmarks(display_frame, hand_landmarks, mp_hands.HAND_CONNECTIONS)
                 
-                # Get and process hand ROI
-                hand_img, roi_coords = get_hand_roi(frame, hand_landmarks)
+                # Get bounding box around the hand
+                x_min, y_min = w, h
+                x_max, y_max = 0, 0
                 
-                # Draw ROI rectangle
-                x_min, y_min, x_max, y_max = roi_coords
-                cv2.rectangle(frame, (x_min, y_min), (x_max, y_max), (0, 255, 0), 2)
+                for lm in hand_landmarks.landmark:
+                    x, y = int(lm.x * w), int(lm.y * h)
+                    x_min = min(x_min, x)
+                    y_min = min(y_min, y)
+                    x_max = max(x_max, x)
+                    y_max = max(y_max, y)
                 
-                if prediction_ready and model is not None:
-                    # Preprocess the hand image
-                    processed_img = preprocess_hand_image(hand_img)
+                # Add padding to the bounding box
+                padding = 30
+                x_min = max(0, x_min - padding)
+                y_min = max(0, y_min - padding)
+                x_max = min(w, x_max + padding)
+                y_max = min(h, y_max + padding)
+                
+                # Draw bounding box
+                cv2.rectangle(display_frame, (x_min, y_min), (x_max, y_max), (0, 255, 0), 2)
+                
+                # Crop and preprocess the hand region
+                hand_img = frame[y_min:y_max, x_min:x_max]
+                
+                if hand_img.size != 0:
+                    # Ensure consistent aspect ratio (square bounding box)
+                    h_crop, w_crop, _ = hand_img.shape
+                    size = max(h_crop, w_crop)
+                    square_img = np.zeros((size, size, 3), dtype=np.uint8)
                     
-                    if processed_img is not None:
-                        # Save debug frame if enabled
-                        if debug_enabled and frame_count % 30 == 0:
-                            debug_path = os.path.join(debug_dir, f"hand_{int(time.time())}.jpg")
-                            cv2.imwrite(debug_path, hand_img)
+                    # Center the hand in the square image
+                    start_h = (size - h_crop) // 2
+                    start_w = (size - w_crop) // 2
+                    square_img[start_h:start_h+h_crop, start_w:start_w+w_crop] = hand_img
+                    
+                    # Process for model prediction - using consistent preprocessing
+                    processed_img = preprocess_image_for_prediction(square_img)
+                    processed_img = np.expand_dims(processed_img, axis=0)
+                    
+                    # Predict
+                    prediction = model.predict(processed_img, verbose=0)
+                    confidence = np.max(prediction)
+                    label = np.argmax(prediction)
+                    
+                    # Save debug information periodically
+                    if frame_counter % debug_frame_interval == 0:
+                        save_debug_info(frame, processed_img, prediction, label, confidence, frame_counter)
+                    
+                    # Display confidence on frame
+                    cv2.putText(display_frame, f"Confidence: {confidence:.2f}", (10, 30), 
+                                cv2.FONT_HERSHEY_SIMPLEX, 0.7, (0, 255, 0), 2)
+                    
+                    # Display top 3 predictions
+                    top_indices = np.argsort(prediction[0])[-3:][::-1]
+                    for i, idx in enumerate(top_indices):
+                        pred_text = f"{i+1}. {nepali_chars[idx]}: {prediction[0][idx]:.3f}"
+                        cv2.putText(display_frame, pred_text, (10, 60 + 30*i), 
+                                    cv2.FONT_HERSHEY_SIMPLEX, 0.7, (255, 0, 0), 2)
+                    
+                    # Check for "घ" bias
+                    if 3 in top_indices[:2]:  # If "घ" is in top 2 predictions
+                        cv2.putText(display_frame, "'घ' (gha) bias detected!", (10, 150), 
+                                  cv2.FONT_HERSHEY_SIMPLEX, 0.7, (0, 0, 255), 2)
+                    
+                    # Only accept prediction if confidence is high enough
+                    if confidence > confidence_threshold:
+                        # Add current prediction to history
+                        previous_predictions.append(int(label))
                         
-                        # Make prediction
-                        prediction = model.predict(processed_img, verbose=0)
+                        # Keep only recent predictions
+                        if len(previous_predictions) > 10:
+                            previous_predictions.pop(0)
                         
-                        # Get predicted class and confidence
-                        predicted_class = np.argmax(prediction[0])
-                        confidence = float(prediction[0][predicted_class])
-                        
-                        # Get stable prediction
-                        stable_class = get_stable_prediction(predicted_class)
-                        
-                        # Only update if confidence is reasonable
-                        if confidence > 0.3:
-                            # Update latest prediction
-                            label = int(stable_class)
+                        # Check if we have enough consistent predictions
+                        if len(previous_predictions) >= prediction_threshold:
+                            # Find most common prediction in recent history
+                            prediction_counts = {}
+                            for pred in previous_predictions[-prediction_threshold:]:
+                                if pred in prediction_counts:
+                                    prediction_counts[pred] += 1
+                                else:
+                                    prediction_counts[pred] = 1
                             
-                            if label >= 0 and label < len(nepali_chars):
-                                latest_prediction = {
-                                    "label": label,
-                                    "character": nepali_chars[label],
-                                    "confidence": float(confidence),
-                                    "top_predictions": [
-                                        {"label": int(i), 
-                                         "character": nepali_chars[i] if i < len(nepali_chars) else "Unknown",
-                                         "confidence": float(prediction[0][i])}
-                                        for i in np.argsort(prediction[0])[-3:][::-1]
-                                    ]
-                                }
-                                last_prediction_time = current_time
-                                
-                                # Show prediction on frame
-                                cv2.putText(
-                                    frame, 
-                                    f"{nepali_chars[label]} ({confidence:.2f})", 
-                                    (10, 30), 
-                                    cv2.FONT_HERSHEY_SIMPLEX, 
-                                    1, 
-                                    (0, 255, 0), 
-                                    2
-                                )
-
+                            most_common = max(prediction_counts, key=prediction_counts.get)
+                            stability = prediction_counts[most_common] / prediction_threshold
+                            
+                            # Only update if prediction is stable
+                            if stability >= 0.6:  # Reduced from 0.8 to 0.6 for testing
+                                if 0 <= most_common < len(nepali_chars):
+                                    latest_prediction = {
+                                        "label": int(most_common), 
+                                        "character": nepali_chars[most_common],
+                                        "confidence": float(confidence),
+                                        "stability": float(stability),
+                                        "top_predictions": [
+                                            {"char": nepali_chars[idx], "conf": float(prediction[0][idx])} 
+                                            for idx in top_indices
+                                        ]
+                                    }
+                                    
+                                    # Display on frame
+                                    char_text = f"Character: {nepali_chars[most_common]}"
+                                    cv2.putText(display_frame, char_text, (10, 180), 
+                                                cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 255, 0), 2)
+                    else:
+                        # Low confidence
+                        latest_prediction = {
+                            "character": "Waiting for clear gesture...",
+                            "confidence": float(confidence),
+                            "stability": 0.0
+                        }
+        else:
+            # No hand detected
+            latest_prediction = {
+                "character": "No hand detected",
+                "confidence": 0.0,
+                "stability": 0.0
+            }
+            
         # Encode frame as JPEG
-        ret, buffer = cv2.imencode('.jpg', frame)
+        ret, buffer = cv2.imencode('.jpg', display_frame)
         if not ret:
             print("Error: Could not encode frame.")
             continue
+            
         frame = buffer.tobytes()
-
         yield (b'--frame\r\n'
                b'Content-Type: image/jpeg\r\n\r\n' + frame + b'\r\n')
-
+    
     cap.release()
 
 @app.route('/')
@@ -246,25 +267,23 @@ def predict():
         return jsonify({"error": "No prediction available"})
     return jsonify(latest_prediction)
 
-@app.route('/toggle_debug')
-def toggle_debug():
-    global debug_enabled
-    debug_enabled = not debug_enabled
-    return jsonify({"debug_enabled": debug_enabled})
-
-@app.route('/reset_model')
-def reset_model():
-    """Endpoint to reset model weights if needed"""
-    global model
-    if model is not None:
-        # Reset the output layer
-        last_layer = model.layers[-1]
-        weights, biases = last_layer.get_weights()
-        new_weights = np.random.normal(0, 0.01, size=weights.shape)
-        new_biases = np.zeros_like(biases)
-        last_layer.set_weights([new_weights, new_biases])
-        return jsonify({"status": "Model reset successfully"})
-    return jsonify({"error": "Model not loaded"})
+@app.route('/debug')
+def debug_info():
+    """Return debug information about the model and prediction process"""
+    model_info = {
+        "input_shape": model.input_shape[1:],
+        "output_shape": model.output_shape[1:],
+        "num_classes": len(nepali_chars),
+        "confidence_threshold": confidence_threshold,
+        "prediction_threshold": prediction_threshold,
+        "debug_mode": debug_mode,
+        "debug_dir": debug_dir
+    }
+    return jsonify(model_info)
 
 if __name__ == '__main__':
+    # Print model summary before starting
+    print("Model Summary:")
+    model.summary()
+    
     app.run(debug=True)

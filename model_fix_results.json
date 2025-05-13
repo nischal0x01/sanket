@@ -1,7 +1,0 @@
-{
-  "original_model": "nsl_model.h5",
-  "fixed_model": "nsl_model_fixed.h5",
-  "unique_predictions": [
-    17
-  ]
-}
