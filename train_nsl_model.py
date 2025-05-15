@@ -236,7 +236,7 @@ def main():
     model.summary()
     
     # Train the model
-    history = train_model(model, X_train, y_train, X_val, y_val, epochs=50)
+    history = train_model(model, X_train, y_train, X_val, y_val, epochs=30)
     
     # Plot training history
     plot_training_history(history)
