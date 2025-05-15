@@ -5,6 +5,7 @@ import os
 import time
 import matplotlib.pyplot as plt
 from sklearn.model_selection import train_test_split
+import cv2
 
 # Set random seed for reproducibility
 np.random.seed(42)
@@ -15,6 +16,24 @@ nepali_chars = ["क", "ख", "ग", "घ", "ङ", "च", "छ", "ज", "झ", "
                 "त", "थ", "द", "ध", "न", "प", "फ", "ब", "भ", "म", "य", "र", "ल", "व", "श", 
                 "ष", "स", "ह", "क्ष", "त्र", "ज्ञ"]
 
+def preprocess_image(image):
+    """
+    Preprocess image consistently with training and inference
+    """
+    # Resize to model's expected input size
+    resized = cv2.resize(image, (64, 64))
+    
+    # Convert to RGB (if not already)
+    if len(image.shape) == 2 or image.shape[2] == 1:
+        rgb_image = cv2.cvtColor(resized, cv2.COLOR_GRAY2RGB)
+    else:
+        rgb_image = cv2.cvtColor(resized, cv2.COLOR_BGR2RGB)
+    
+    # Normalize to [0,1] range
+    normalized = rgb_image / 255.0
+    
+    return normalized
+
 def load_data():
     """
     Load preprocessed data from numpy files
@@ -22,6 +41,10 @@ def load_data():
     try:
         images = np.load("nsl_images.npy")
         labels = np.load("nsl_labels.npy")
+        
+        # Apply preprocessing to all images
+        images = np.array([preprocess_image(img) for img in images])
+        
         print(f"Loaded preprocessed data: {images.shape} images, {labels.shape} labels")
         return images, labels
     except FileNotFoundError:
@@ -101,9 +124,7 @@ def train_model(model, X_train, y_train, X_val, y_val, epochs=30):
     class_weights = {}
     unique_classes, class_counts = np.unique(y_train, return_counts=True)
     total_samples = len(y_train)
-    
     for cls, count in zip(unique_classes, class_counts):
-        # Inverse frequency weighting
         class_weights[cls] = total_samples / (len(unique_classes) * count)
     
     # Early stopping with longer patience
@@ -123,21 +144,13 @@ def train_model(model, X_train, y_train, X_val, y_val, epochs=30):
         verbose=1
     )
     
-    # Model checkpoint to save best model
-    checkpoint = tf.keras.callbacks.ModelCheckpoint(
-        'best_model.h5',
-        monitor='val_accuracy',
-        save_best_only=True,
-        verbose=1
-    )
-    
     # Train with data augmentation, class weights, and callbacks
     history = model.fit(
         datagen.flow(X_train, y_train, batch_size=32),
         epochs=epochs,
         validation_data=(X_val, y_val),
         class_weight=class_weights,
-        callbacks=[early_stopping, reduce_lr, checkpoint],
+        callbacks=[early_stopping, reduce_lr],
         verbose=1
     )
     
@@ -219,22 +232,16 @@ def main():
     # Build the model
     input_shape = X_train.shape[1:]
     num_classes = len(nepali_chars)
-    
     model = build_model(input_shape, num_classes)
     model.summary()
     
     # Train the model
-    history = train_model(model, X_train, y_train, X_val, y_val, epochs=50)  # Increased epochs
+    history = train_model(model, X_train, y_train, X_val, y_val, epochs=50)
     
     # Plot training history
     plot_training_history(history)
     
-    # Load the best model for evaluation
-    if os.path.exists('best_model.h5'):
-        model = tf.keras.models.load_model('best_model.h5')
-        print("Loaded best model for evaluation")
-    
-    # Evaluate on test set
+    # Evaluate on test set using the last trained model (no best_model.h5 logic)
     test_accuracy, class_accuracies = evaluate_model(model, X_test, y_test)
     
     # Save the model

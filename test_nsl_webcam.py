@@ -32,12 +32,12 @@ confidence_threshold = 0.5  # Reduced from 0.7 to see more predictions
 frame_counter = 0
 
 # Debug mode - save problematic frames
-debug_mode = True
-debug_frame_interval = 20  # Save every 20th frame for analysis
+debug_mode = False  # Disable debug frame saving
+debug_frame_interval = 20  # (value doesn't matter if debug_mode is False)
 
 def preprocess_image_for_prediction(image):
     """
-    Preprocess image consistently with training data
+    Preprocess image consistently with training and inference
     """
     # Resize to model's expected input size
     resized = cv2.resize(image, (64, 64))
@@ -48,7 +48,7 @@ def preprocess_image_for_prediction(image):
     else:
         rgb_image = cv2.cvtColor(resized, cv2.COLOR_BGR2RGB)
     
-    # Normalize to [0,1] range - matching training preprocessing
+    # Normalize to [0,1] range
     normalized = rgb_image / 255.0
     
     return normalized
@@ -59,23 +59,6 @@ def save_debug_info(frame, processed_img, prediction, label, confidence, frame_n
     """
     if not debug_mode:
         return
-    
-    # Save original frame
-    debug_path = os.path.join(debug_dir, f"frame_{frame_num:04d}_original.jpg")
-    cv2.imwrite(debug_path, frame)
-    
-    # Save processed input to model
-    processed_debug = (processed_img[0] * 255).astype(np.uint8)  # Convert back to 0-255 range
-    processed_path = os.path.join(debug_dir, f"frame_{frame_num:04d}_processed.jpg")
-    cv2.imwrite(processed_path, cv2.cvtColor(processed_debug, cv2.COLOR_RGB2BGR))
-    
-    # Save prediction distribution
-    with open(os.path.join(debug_dir, f"frame_{frame_num:04d}_predictions.txt"), "w") as f:
-        f.write(f"Predicted Label: {nepali_chars[label]} (index {label})\n")
-        f.write(f"Confidence: {confidence:.4f}\n\n")
-        f.write("All Predictions:\n")
-        for i, prob in enumerate(prediction[0]):
-            f.write(f"{i}: {nepali_chars[i]} = {prob:.4f}\n")
 
 def main():
     global frame_counter
@@ -196,10 +179,6 @@ def main():
                         confidence = np.max(prediction)
                         label = np.argmax(prediction)
                         
-                        # Save debug information periodically
-                        if frame_counter % debug_frame_interval == 0:
-                            save_debug_info(frame, processed_img, prediction, label, confidence, frame_counter)
-                        
                         # Display confidence on frame
                         cv2.putText(display_frame, f"Confidence: {confidence:.2f}", (10, 55), 
                                     cv2.FONT_HERSHEY_SIMPLEX, 0.7, (0, 255, 0), 2)
@@ -210,11 +189,6 @@ def main():
                             pred_text = f"{i+1}. {nepali_chars[idx]}: {prediction[0][idx]:.3f}"
                             cv2.putText(display_frame, pred_text, (10, 90 + 30*i), 
                                         cv2.FONT_HERSHEY_SIMPLEX, 0.7, (255, 0, 0), 2)
-                        
-                        # Add a message if "घ" (index 3) is always in top predictions
-                        if 3 in top_indices[:2]:  # If "घ" is in top 2 predictions
-                            cv2.putText(display_frame, "'घ' (gha) bias detected!", (10, 230), 
-                                      cv2.FONT_HERSHEY_SIMPLEX, 0.7, (0, 0, 255), 2)
                         
                         # Process prediction stability with lower threshold
                         if confidence > confidence_threshold:

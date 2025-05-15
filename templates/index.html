@@ -8,449 +8,80 @@
         body {
             font-family: 'Arial', sans-serif;
             margin: 0;
-            padding: 20px;
+            padding: 0;
             background-color: #f5f5f5;
             color: #333;
         }
-        
-        .container {
-            max-width: 1200px;
-            margin: 0 auto;
+        .main-content {
             display: flex;
             flex-direction: column;
             align-items: center;
+            justify-content: flex-start;
+            min-height: 100vh;
+            padding-top: 40px;
         }
-        
-        h1 {
-            color: #2c3e50;
-            text-align: center;
-            margin-bottom: 20px;
-        }
-        
-        .main-content {
-            display: flex;
-            flex-wrap: wrap;
-            justify-content: center;
-            gap: 20px;
-            width: 100%;
-        }
-        
         .video-container {
             background: #fff;
             border-radius: 8px;
             box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
-            padding: 20px;
-            width: 640px;
-            max-width: 100%;
-        }
-        
-        .prediction-container {
-            background: #fff;
-            border-radius: 8px;
-            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
-            padding: 20px;
-            width: 300px;
-            max-width: 100%;
-        }
-        
-        .video-feed {
-            width: 100%;
-            height: auto;
-            border-radius: 4px;
-        }
-        
-        .char-display {
-            font-size: 72px;
-            text-align: center;
-            margin: 20px 0;
-            height: 100px;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-        }
-        
-        .prediction-info {
-            font-size: 18px;
-            margin-top: 10px;
-        }
-        
-        .confidence-bar {
-            width: 100%;
-            height: 20px;
-            background-color: #eee;
-            border-radius: 10px;
-            margin: 15px 0;
-            overflow: hidden;
-        }
-        
-        .confidence-level {
-            height: 100%;
-            background-color: green;
-            width: 0%;
-            transition: width 0.3s ease;
-            border-radius: 10px;
-        }
-        
-        .instructions {
-            background: #fff;
-            border-radius: 8px;
-            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
-            padding: 20px;
-            margin-top: 20px;
-            width: 100%;
-            max-width: 980px;
-        }
-        
-        .char-table {
-            display: grid;
-            grid-template-columns: repeat(6, 1fr);
-            gap: 10px;
-            margin-top: 20px;
-        }
-        
-        .char-item {
-            text-align: center;
-            padding: 10px;
-            background-color: #f0f0f0;
-            border-radius: 4px;
+            padding: 0;
+            width: 800px;
+            max-width: 98vw;
             display: flex;
             flex-direction: column;
             align-items: center;
         }
-        
-        .char-nepali {
-            font-size: 24px;
-            font-weight: bold;
-        }
-        
-        .char-index {
-            font-size: 12px;
-            color: #666;
-        }
-        
-        .status-message {
-            margin-top: 10px;
-            padding: 10px;
-            border-radius: 4px;
-            background-color: #f8f9fa;
-            text-align: center;
-        }
-        
-        .history-container {
-            margin-top: 20px;
+        .video-feed {
             width: 100%;
+            height: auto;
+            border-radius: 8px 8px 0 0;
+            display: block;
         }
-        
-        .history-list {
-            list-style-type: none;
-            padding: 0;
+        .char-display {
+            font-size: 96px;
+            text-align: center;
+            margin: 30px 0 10px 0;
+            height: 120px;
             display: flex;
-            flex-wrap: wrap;
-            gap: 10px;
+            align-items: center;
+            justify-content: center;
+            font-weight: bold;
+            letter-spacing: 2px;
         }
-        
-        .history-item {
-            font-size: 24px;
-            background-color: #e9ecef;
-            padding: 5px 10px;
-            border-radius: 4px;
-        }
-        
-        @media (max-width: 768px) {
-            .main-content {
-                flex-direction: column;
-                align-items: center;
-            }
-            
-            .video-container, .prediction-container {
-                width: 100%;
-            }
-            
-            .char-table {
-                grid-template-columns: repeat(3, 1fr);
+        @media (max-width: 900px) {
+            .video-container {
+                width: 100vw;
             }
         }
     </style>
 </head>
 <body>
-    <div class="container">
-        <h1>Nepali Sign Language Recognition</h1>
-        
-        <div class="main-content">
-            <div class="video-container">
-                <img src="{{ url_for('video_feed') }}" class="video-feed" alt="Video Feed">
-                <div class="status-message" id="status-message">Waiting for hand detection...</div>
-            </div>
-            
-            <div class="prediction-container">
-                <h2>Recognition Result</h2>
-                <div class="char-display" id="character-display">-</div>
-                <div class="prediction-info">
-                    <p>Confidence:</p>
-                    <div class="confidence-bar">
-                        <div class="confidence-level" id="confidence-level"></div>
-                    </div>
-                    <p id="confidence-value">0%</p>
-                </div>
-                <div class="prediction-info">
-                    <p>Stability:</p>
-                    <div class="confidence-bar">
-                        <div class="confidence-level" id="stability-level" style="background-color: #3498db;"></div>
-                    </div>
-                    <p id="stability-value">0%</p>
-                </div>
-                
-                <h3>Recent Characters</h3>
-                <div class="history-container">
-                    <ul class="history-list" id="history-list">
-                        <!-- History items will be added here -->
-                    </ul>
-                </div>
-            </div>
-        </div>
-        
-        <div class="instructions">
-            <h2>Instructions</h2>
-            <p>1. Position your hand clearly in front of the camera.</p>
-            <p>2. Form the hand gesture for the Nepali character you want to sign.</p>
-            <p>3. Hold the gesture steady for a moment to get an accurate prediction.</p>
-            <p>4. The system will display the recognized character and confidence level.</p>
-            
-            <h3>Available Characters</h3>
-            <div class="char-table">
-                <!-- Generate table for all 36 characters -->
-                <div class="char-item">
-                    <div class="char-nepali">क</div>
-                    <div class="char-index">0</div>
-                </div>
-                <div class="char-item">
-                    <div class="char-nepali">ख</div>
-                    <div class="char-index">1</div>
-                </div>
-                <div class="char-item">
-                    <div class="char-nepali">ग</div>
-                    <div class="char-index">2</div>
-                </div>
-                <div class="char-item">
-                    <div class="char-nepali">घ</div>
-                    <div class="char-index">3</div>
-                </div>
-                <div class="char-item">
-                    <div class="char-nepali">ङ</div>
-                    <div class="char-index">4</div>
-                </div>
-                <div class="char-item">
-                    <div class="char-nepali">च</div>
-                    <div class="char-index">5</div>
-                </div>
-                <div class="char-item">
-                    <div class="char-nepali">छ</div>
-                    <div class="char-index">6</div>
-                </div>
-                <div class="char-item">
-                    <div class="char-nepali">ज</div>
-                    <div class="char-index">7</div>
-                </div>
-                <div class="char-item">
-                    <div class="char-nepali">झ</div>
-                    <div class="char-index">8</div>
-                </div>
-                <div class="char-item">
-                    <div class="char-nepali">ञ</div>
-                    <div class="char-index">9</div>
-                </div>
-                <div class="char-item">
-                    <div class="char-nepali">ट</div>
-                    <div class="char-index">10</div>
-                </div>
-                <div class="char-item">
-                    <div class="char-nepali">ठ</div>
-                    <div class="char-index">11</div>
-                </div>
-                <div class="char-item">
-                    <div class="char-nepali">ड</div>
-                    <div class="char-index">12</div>
-                </div>
-                <div class="char-item">
-                    <div class="char-nepali">ढ</div>
-                    <div class="char-index">13</div>
-                </div>
-                <div class="char-item">
-                    <div class="char-nepali">ण</div>
-                    <div class="char-index">14</div>
-                </div>
-                <div class="char-item">
-                    <div class="char-nepali">त</div>
-                    <div class="char-index">15</div>
-                </div>
-                <div class="char-item">
-                    <div class="char-nepali">थ</div>
-                    <div class="char-index">16</div>
-                </div>
-                <div class="char-item">
-                    <div class="char-nepali">द</div>
-                    <div class="char-index">17</div>
-                </div>
-                <div class="char-item">
-                    <div class="char-nepali">ध</div>
-                    <div class="char-index">18</div>
-                </div>
-                <div class="char-item">
-                    <div class="char-nepali">न</div>
-                    <div class="char-index">19</div>
-                </div>
-                <div class="char-item">
-                    <div class="char-nepali">प</div>
-                    <div class="char-index">20</div>
-                </div>
-                <div class="char-item">
-                    <div class="char-nepali">फ</div>
-                    <div class="char-index">21</div>
-                </div>
-                <div class="char-item">
-                    <div class="char-nepali">ब</div>
-                    <div class="char-index">22</div>
-                </div>
-                <div class="char-item">
-                    <div class="char-nepali">भ</div>
-                    <div class="char-index">23</div>
-                </div>
-                <div class="char-item">
-                    <div class="char-nepali">म</div>
-                    <div class="char-index">24</div>
-                </div>
-                <div class="char-item">
-                    <div class="char-nepali">य</div>
-                    <div class="char-index">25</div>
-                </div>
-                <div class="char-item">
-                    <div class="char-nepali">र</div>
-                    <div class="char-index">26</div>
-                </div>
-                <div class="char-item">
-                    <div class="char-nepali">ल</div>
-                    <div class="char-index">27</div>
-                </div>
-                <div class="char-item">
-                    <div class="char-nepali">व</div>
-                    <div class="char-index">28</div>
-                </div>
-                <div class="char-item">
-                    <div class="char-nepali">श</div>
-                    <div class="char-index">29</div>
-                </div>
-                <div class="char-item">
-                    <div class="char-nepali">ष</div>
-                    <div class="char-index">30</div>
-                </div>
-                <div class="char-item">
-                    <div class="char-nepali">स</div>
-                    <div class="char-index">31</div>
-                </div>
-                <div class="char-item">
-                    <div class="char-nepali">ह</div>
-                    <div class="char-index">32</div>
-                </div>
-                <div class="char-item">
-                    <div class="char-nepali">क्ष</div>
-                    <div class="char-index">33</div>
-                </div>
-                <div class="char-item">
-                    <div class="char-nepali">त्र</div>
-                    <div class="char-index">34</div>
-                </div>
-                <div class="char-item">
-                    <div class="char-nepali">ज्ञ</div>
-                    <div class="char-index">35</div>
-                </div>
-            </div>
+    <div class="main-content">
+        <div class="video-container">
+            <img src="{{ url_for('video_feed') }}" class="video-feed" alt="Video Feed">
+            <div class="char-display" id="character-display">-</div>
         </div>
     </div>
-    
     <script>
-        // History of recognized characters
-        const characterHistory = [];
-        const maxHistoryLength = 10;
-        
-        // Update prediction information
         function updatePrediction() {
             fetch('/predict')
                 .then(response => response.json())
                 .then(data => {
+                    const charDisplay = document.getElementById('character-display');
                     if (data.error) {
-                        document.getElementById('status-message').textContent = "No prediction available";
+                        charDisplay.textContent = "-";
                         return;
                     }
-                    
-                    // Display the character
-                    const charDisplay = document.getElementById('character-display');
-                    const statusMessage = document.getElementById('status-message');
-                    
-                    if (data.character === "No hand detected") {
+                    if (data.character === "No hand detected" || data.character === "Waiting for clear gesture...") {
                         charDisplay.textContent = "-";
-                        statusMessage.textContent = "No hand detected. Please show your hand to the camera.";
-                        statusMessage.style.backgroundColor = "#ffcccc";
-                    } else if (data.character === "Waiting for clear gesture...") {
-                        charDisplay.textContent = "-";
-                        statusMessage.textContent = "Waiting for a clear gesture...";
-                        statusMessage.style.backgroundColor = "#ffffcc";
                     } else if (data.label !== undefined) {
                         charDisplay.textContent = data.character;
-                        statusMessage.textContent = "Character recognized!";
-                        statusMessage.style.backgroundColor = "#ccffcc";
-                        
-                        // Add to history if it's a new character
-                        if (characterHistory.length === 0 || 
-                            characterHistory[characterHistory.length - 1] !== data.character) {
-                            characterHistory.push(data.character);
-                            if (characterHistory.length > maxHistoryLength) {
-                                characterHistory.shift();
-                            }
-                            updateHistory();
-                        }
-                    }
-                    
-                    // Update confidence display
-                    if (data.confidence !== undefined) {
-                        const confidencePercent = Math.round(data.confidence * 100);
-                        document.getElementById('confidence-value').textContent = confidencePercent + "%";
-                        document.getElementById('confidence-level').style.width = confidencePercent + "%";
-                        
-                        // Change color based on confidence
-                        let color = "red";
-                        if (confidencePercent > 80) color = "green";
-                        else if (confidencePercent > 60) color = "#5cb85c";  // Lighter green
-                        else if (confidencePercent > 40) color = "orange";
-                        document.getElementById('confidence-level').style.backgroundColor = color;
-                    }
-                    
-                    // Update stability display
-                    if (data.stability !== undefined) {
-                        const stabilityPercent = Math.round(data.stability * 100);
-                        document.getElementById('stability-value').textContent = stabilityPercent + "%";
-                        document.getElementById('stability-level').style.width = stabilityPercent + "%";
                     }
                 })
                 .catch(error => {
                     console.error('Error fetching prediction:', error);
                 });
         }
-        
-        // Update history display
-        function updateHistory() {
-            const historyList = document.getElementById('history-list');
-            historyList.innerHTML = '';
-            
-            // Add items in reverse order (newest first)
-            for (let i = characterHistory.length - 1; i >= 0; i--) {
-                const li = document.createElement('li');
-                li.className = 'history-item';
-                li.textContent = characterHistory[i];
-                historyList.appendChild(li);
-            }
-        }
-        
-        // Update prediction periodically
         setInterval(updatePrediction, 500);
     </script>
 </body>
